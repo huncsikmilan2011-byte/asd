@@ -1,0 +1,1530 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SZTOJA GAME - Puzzle Mester</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800;900&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        :root {
+            --primary: #6C3CE1;
+            --secondary: #E9408B;
+            --accent: #00E5FF;
+            --gold: #FFD700;
+            --bg-dark: #0B0B1A;
+            --bg-panel: #141430;
+            --bg-card: #1E1E4A;
+            --text: #F0F0FF;
+            --text-dim: #8888BB;
+            --radius: 18px;
+            --shadow: 0 12px 40px rgba(0, 0, 0, 0.7);
+            --glow: 0 0 30px rgba(108, 60, 225, 0.3);
+        }
+
+        body {
+            background: var(--bg-dark);
+            color: var(--text);
+            font-family: 'Nunito', sans-serif;
+            min-height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* ===== ANIMÁLT HÁTTÉR ===== */
+        .bg-particles {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+        .bg-particles span {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: var(--accent);
+            border-radius: 50%;
+            animation: float-particle linear infinite;
+            opacity: 0.15;
+        }
+        @keyframes float-particle {
+            0% { transform: translateY(100vh) scale(0); opacity: 0; }
+            10% { opacity: 0.15; }
+            90% { opacity: 0.15; }
+            100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+        }
+
+        /* ===== FŐ LAYOUT ===== */
+        #app {
+            position: relative;
+            z-index: 1;
+            max-width: 480px;
+            margin: 0 auto;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: rgba(11, 11, 26, 0.92);
+            backdrop-filter: blur(20px);
+            box-shadow: 0 0 60px rgba(108, 60, 225, 0.15);
+        }
+
+        /* ===== TOP BAR ===== */
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 18px;
+            background: rgba(20, 20, 48, 0.8);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            flex-shrink: 0;
+            min-height: 56px;
+        }
+        .topbar .logo {
+            font-family: 'Fredoka One', cursive;
+            font-size: 1.3rem;
+            background: linear-gradient(135deg, var(--gold), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .topbar .gems {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 800;
+            font-size: 1.1rem;
+            color: var(--gold);
+            background: rgba(255, 215, 0, 0.1);
+            padding: 4px 14px 4px 10px;
+            border-radius: 30px;
+            border: 1px solid rgba(255, 215, 0, 0.2);
+        }
+        .topbar .gems span {
+            font-size: 1.2rem;
+        }
+
+        /* ===== KÉPERNYŐK ===== */
+        .screen {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+            overflow: hidden;
+            animation: fadeIn 0.3s ease;
+        }
+        .screen.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ===== MENÜ ===== */
+        #menu-screen {
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            gap: 20px;
+        }
+        #menu-screen .title {
+            font-family: 'Fredoka One', cursive;
+            font-size: clamp(2.8rem, 10vw, 4.5rem);
+            text-align: center;
+            line-height: 1.1;
+            background: linear-gradient(135deg, #fff 30%, var(--gold), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: none;
+            filter: drop-shadow(0 0 40px rgba(108, 60, 225, 0.4));
+        }
+        #menu-screen .subtitle {
+            color: var(--text-dim);
+            font-size: 0.95rem;
+            text-align: center;
+            margin-top: -8px;
+        }
+        .menu-btns {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: 100%;
+            max-width: 300px;
+            margin-top: 10px;
+        }
+        .menu-btn {
+            padding: 16px 24px;
+            border: none;
+            border-radius: var(--radius);
+            font-family: 'Fredoka One', cursive;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            position: relative;
+            overflow: hidden;
+            text-align: center;
+        }
+        .menu-btn:active {
+            transform: scale(0.96);
+        }
+        .menu-btn.primary {
+            background: linear-gradient(135deg, var(--primary), #8B5CF6);
+            color: #fff;
+            box-shadow: 0 4px 20px rgba(108, 60, 225, 0.4);
+        }
+        .menu-btn.story {
+            background: linear-gradient(135deg, #00B894, #00E5FF);
+            color: #0B0B1A;
+            box-shadow: 0 4px 20px rgba(0, 229, 255, 0.3);
+        }
+        .menu-btn.shop {
+            background: linear-gradient(135deg, var(--gold), #FF6B35);
+            color: #0B0B1A;
+            box-shadow: 0 4px 20px rgba(255, 215, 0, 0.3);
+        }
+        .menu-btn .badge {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            background: var(--secondary);
+            color: #fff;
+            font-size: 0.6rem;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-family: 'Nunito', sans-serif;
+        }
+
+        /* ===== JÁTÉK ===== */
+        #game-screen {
+            padding: 10px 16px 16px;
+            gap: 8px;
+        }
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+            padding: 4px 0;
+        }
+        .game-header .back-btn {
+            background: rgba(255, 255, 255, 0.08);
+            border: none;
+            color: var(--text);
+            padding: 6px 14px;
+            border-radius: 30px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: 0.15s;
+        }
+        .game-header .back-btn:active {
+            transform: scale(0.92);
+        }
+        .game-header .score-area {
+            text-align: center;
+        }
+        .game-header .score-area .score {
+            font-family: 'Fredoka One', cursive;
+            font-size: 1.8rem;
+            color: var(--gold);
+            line-height: 1;
+        }
+        .game-header .score-area .target {
+            font-size: 0.7rem;
+            color: var(--text-dim);
+        }
+        .game-header .combo {
+            font-family: 'Fredoka One', cursive;
+            font-size: 1.1rem;
+            color: var(--accent);
+            min-width: 60px;
+            text-align: right;
+        }
+
+        /* Tábla */
+        #board-wrap {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 0;
+            padding: 4px 0;
+        }
+        #board {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 4px;
+            width: 100%;
+            max-width: 400px;
+            aspect-ratio: 1;
+            background: var(--bg-panel);
+            border-radius: var(--radius);
+            padding: 8px;
+            box-shadow: var(--shadow);
+        }
+        .cell {
+            aspect-ratio: 1;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.04);
+            transition: all 0.08s ease;
+            position: relative;
+            cursor: pointer;
+        }
+        .cell.filled {
+            background: radial-gradient(circle at 30% 30%, #f9b84a, #c2571a);
+            box-shadow: inset 0 -2px 8px rgba(0,0,0,0.3), 0 0 12px rgba(255, 165, 89, 0.2);
+            transition: all 0.15s ease;
+        }
+        .cell.filled .cell-icon {
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            text-shadow: 0 0 10px rgba(255,255,255,0.3);
+        }
+        .cell.preview-active {
+            background: rgba(57, 255, 20, 0.45) !important;
+            box-shadow: 0 0 0 2px var(--green) !important;
+            transform: scale(0.94);
+        }
+        .cell.preview-invalid {
+            background: rgba(255, 77, 109, 0.45) !important;
+            box-shadow: 0 0 0 2px var(--secondary) !important;
+            transform: scale(0.94);
+        }
+        .cell.removing {
+            animation: popOut 0.25s ease forwards;
+        }
+        @keyframes popOut {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.4); opacity: 0.6; }
+            100% { transform: scale(0); opacity: 0; }
+        }
+
+        /* Darabok */
+        #pieces-area {
+            display: flex;
+            gap: 12px;
+            padding: 10px 12px;
+            background: var(--bg-panel);
+            border-radius: var(--radius);
+            justify-content: space-around;
+            flex-shrink: 0;
+            min-height: 70px;
+            box-shadow: var(--shadow);
+        }
+        .piece-slot {
+            cursor: grab;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 6px;
+            border-radius: 12px;
+            transition: all 0.15s ease;
+            touch-action: none;
+            min-width: 60px;
+        }
+        .piece-slot:active {
+            cursor: grabbing;
+        }
+        .piece-slot.selected {
+            background: rgba(108, 60, 225, 0.25);
+            box-shadow: 0 0 20px rgba(108, 60, 225, 0.3);
+            transform: scale(1.05);
+        }
+        .piece-slot.used {
+            opacity: 0.15;
+            pointer-events: none;
+        }
+        .piece-grid {
+            display: grid;
+            gap: 3px;
+        }
+        .piece-cell {
+            width: 20px;
+            height: 20px;
+            border-radius: 5px;
+            background: transparent;
+        }
+        .piece-cell.filled {
+            box-shadow: inset 0 -2px 6px rgba(0,0,0,0.3);
+        }
+
+        /* ===== BOLT ===== */
+        #shop-screen {
+            padding: 12px 16px;
+        }
+        .shop-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding-bottom: 20px;
+        }
+        .shop-scroll::-webkit-scrollbar {
+            width: 3px;
+        }
+        .shop-scroll::-webkit-scrollbar-thumb {
+            background: var(--primary);
+            border-radius: 10px;
+        }
+
+        .shop-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0 16px;
+            flex-shrink: 0;
+        }
+        .shop-header h2 {
+            font-family: 'Fredoka One', cursive;
+            font-size: 1.6rem;
+            background: linear-gradient(135deg, var(--gold), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .shop-section {
+            margin-bottom: 20px;
+        }
+        .shop-section h3 {
+            font-size: 0.9rem;
+            color: var(--text-dim);
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        .shop-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+            gap: 10px;
+        }
+        .shop-item {
+            background: var(--bg-card);
+            border-radius: 14px;
+            padding: 10px 6px;
+            text-align: center;
+            border: 2px solid rgba(255,255,255,0.06);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .shop-item:active {
+            transform: scale(0.95);
+        }
+        .shop-item.owned {
+            border-color: var(--green);
+        }
+        .shop-item.active-item {
+            border-color: var(--gold);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.2);
+        }
+        .shop-item .preview {
+            font-size: 1.8rem;
+            margin-bottom: 4px;
+        }
+        .shop-item .name {
+            font-size: 0.7rem;
+            font-weight: 700;
+        }
+        .shop-item .price {
+            font-size: 0.65rem;
+            color: var(--gold);
+            margin-top: 2px;
+        }
+
+        /* ===== TÖRTÉNET ===== */
+        #story-screen {
+            padding: 12px 16px;
+        }
+        .story-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding-bottom: 20px;
+        }
+        .world-tabs {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding: 8px 0 12px;
+            flex-shrink: 0;
+            scrollbar-width: none;
+        }
+        .world-tabs::-webkit-scrollbar {
+            display: none;
+        }
+        .world-tab {
+            padding: 8px 16px;
+            border-radius: 30px;
+            border: 2px solid rgba(255,255,255,0.08);
+            background: var(--bg-card);
+            color: var(--text-dim);
+            font-weight: 700;
+            font-size: 0.75rem;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.15s ease;
+            flex-shrink: 0;
+        }
+        .world-tab.active {
+            border-color: var(--primary);
+            color: #fff;
+            background: rgba(108, 60, 225, 0.2);
+        }
+        .world-tab.locked {
+            opacity: 0.4;
+            pointer-events: none;
+        }
+        .level-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            padding: 4px 0;
+        }
+        .level-btn {
+            aspect-ratio: 1;
+            background: var(--bg-card);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid rgba(255,255,255,0.06);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            padding: 4px;
+        }
+        .level-btn:active {
+            transform: scale(0.92);
+        }
+        .level-btn .lvl-num {
+            font-family: 'Fredoka One', cursive;
+            font-size: 1.2rem;
+        }
+        .level-btn .lvl-target {
+            font-size: 0.55rem;
+            color: var(--text-dim);
+        }
+        .level-btn.completed {
+            border-color: var(--gold);
+            background: rgba(255, 215, 0, 0.08);
+        }
+        .level-btn.locked {
+            opacity: 0.3;
+            pointer-events: none;
+        }
+        .level-btn .star {
+            color: var(--gold);
+            font-size: 0.7rem;
+        }
+
+        /* ===== OVERLAY ===== */
+        #overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(12px);
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.25s ease;
+        }
+        #overlay.show {
+            display: flex;
+        }
+        .overlay-box {
+            background: var(--bg-panel);
+            border-radius: 28px;
+            padding: 32px 28px;
+            text-align: center;
+            max-width: 320px;
+            width: 90%;
+            border: 1px solid rgba(108, 60, 225, 0.3);
+            box-shadow: var(--shadow), var(--glow);
+        }
+        .overlay-box h2 {
+            font-family: 'Fredoka One', cursive;
+            font-size: 1.8rem;
+            margin-bottom: 8px;
+        }
+        .overlay-box .msg {
+            font-size: 0.95rem;
+            color: var(--text-dim);
+            margin: 8px 0 16px;
+            line-height: 1.5;
+        }
+        .overlay-box .reward {
+            font-size: 1.2rem;
+            color: var(--gold);
+            font-weight: 800;
+            margin: 4px 0 16px;
+        }
+        .overlay-btns {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        .overlay-btns button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 40px;
+            font-family: 'Fredoka One', cursive;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: 0.15s;
+        }
+        .overlay-btns button:active {
+            transform: scale(0.94);
+        }
+        .overlay-btns .btn-primary {
+            background: linear-gradient(135deg, var(--primary), #8B5CF6);
+            color: #fff;
+        }
+        .overlay-btns .btn-secondary {
+            background: rgba(255,255,255,0.08);
+            color: var(--text);
+        }
+
+        /* ===== TOAST ===== */
+        #toast {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(8px);
+            color: #fff;
+            padding: 10px 24px;
+            border-radius: 40px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            z-index: 200;
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            opacity: 0;
+            pointer-events: none;
+            border: 1px solid rgba(255,255,255,0.06);
+            max-width: 90%;
+            text-align: center;
+        }
+        #toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* ===== RÉSZECSKÉK ===== */
+        .particle {
+            position: fixed;
+            pointer-events: none;
+            z-index: 50;
+            border-radius: 50%;
+            animation: particleFly 0.7s ease-out forwards;
+        }
+        @keyframes particleFly {
+            0% { transform: translate(0, 0) scale(1); opacity: 1; }
+            100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; }
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 420px) {
+            .piece-cell {
+                width: 16px;
+                height: 16px;
+            }
+            .piece-slot {
+                min-width: 50px;
+                padding: 4px;
+            }
+            #board {
+                padding: 5px;
+                gap: 3px;
+            }
+            .cell {
+                border-radius: 5px;
+            }
+            .cell.filled .cell-icon {
+                font-size: 0.8rem;
+            }
+            .game-header .score-area .score {
+                font-size: 1.4rem;
+            }
+            .shop-grid {
+                grid-template-columns: repeat(auto-fill, minmax(75px, 1fr));
+            }
+            .level-grid {
+                grid-template-columns: repeat(5, 1fr);
+                gap: 6px;
+            }
+            .level-btn .lvl-num {
+                font-size: 1rem;
+            }
+        }
+
+        @media (min-width: 500px) {
+            #app {
+                border-radius: 24px;
+                margin-top: 12px;
+                height: calc(100vh - 24px);
+                max-height: 900px;
+            }
+            body {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: #060612;
+            }
+        }
+
+        /* ===== HELPER ===== */
+        .flex-center {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .gap-8 { gap: 8px; }
+        .text-glow {
+            text-shadow: 0 0 30px rgba(108, 60, 225, 0.3);
+        }
+        .text-dim {
+            color: var(--text-dim);
+        }
+        .mt-8 { margin-top: 8px; }
+        .mb-8 { margin-bottom: 8px; }
+    </style>
+</head>
+<body>
+
+<div id="app">
+
+    <!-- TOP BAR -->
+    <div class="topbar">
+        <div class="logo">⚡ SZTOJA</div>
+        <div class="gems">
+            <span>💎</span>
+            <span id="gem-count">100</span>
+        </div>
+    </div>
+
+    <!-- ===== MENÜ ===== -->
+    <div id="menu-screen" class="screen active">
+        <div class="title">PUZZLE<br>MASTER</div>
+        <div class="subtitle">🧩 Húzd a kockákat a táblára!</div>
+        <div class="menu-btns">
+            <button class="menu-btn primary" id="startClassicBtn">🎮 Klasszikus</button>
+            <button class="menu-btn story" id="storyMenuBtn">📖 Történet Mód</button>
+            <button class="menu-btn shop" id="shopMenuBtn">🛒 Bolt</button>
+        </div>
+        <div style="margin-top:12px;font-size:0.75rem;color:var(--text-dim);text-align:center;">
+            💡 100 gyémánttal indítasz
+        </div>
+    </div>
+
+    <!-- ===== JÁTÉK ===== -->
+    <div id="game-screen" class="screen">
+        <div class="game-header">
+            <button class="back-btn" id="gameBackBtn">← Vissza</button>
+            <div class="score-area">
+                <div class="score" id="score-val">0</div>
+                <div class="target" id="target-display">🎯 Cél: 120</div>
+            </div>
+            <div class="combo" id="combo-display">⚡ x1</div>
+        </div>
+        <div id="board-wrap">
+            <div id="board"></div>
+        </div>
+        <div id="pieces-area"></div>
+        <div style="font-size:0.65rem;color:var(--text-dim);text-align:center;padding:4px 0;flex-shrink:0;">
+            💡 Húzd a kockákat a táblára
+        </div>
+    </div>
+
+    <!-- ===== BOLT ===== -->
+    <div id="shop-screen" class="screen">
+        <div class="shop-header">
+            <button class="back-btn" id="shopBackBtn">← Vissza</button>
+            <h2>🛒 Bolt</h2>
+            <div style="width:50px;"></div>
+        </div>
+        <div class="shop-scroll" id="shop-scroll">
+            <div class="shop-section">
+                <h3>🌍 Hátterek</h3>
+                <div class="shop-grid" id="bg-shop"></div>
+            </div>
+            <div class="shop-section">
+                <h3>🎨 Kocka Stílusok</h3>
+                <div class="shop-grid" id="style-shop"></div>
+            </div>
+            <div class="shop-section">
+                <h3>✨ Ikonok</h3>
+                <div class="shop-grid" id="icon-shop"></div>
+            </div>
+            <div class="shop-section">
+                <h3>⚡ Power-upok</h3>
+                <div class="shop-grid" id="powerup-shop"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== TÖRTÉNET ===== -->
+    <div id="story-screen" class="screen">
+        <div class="shop-header">
+            <button class="back-btn" id="storyBackBtn">← Vissza</button>
+            <h2 style="font-family:'Fredoka One',cursive;font-size:1.3rem;">📖 Történet</h2>
+            <div style="width:50px;"></div>
+        </div>
+        <div class="world-tabs" id="world-tabs"></div>
+        <div class="story-scroll" id="story-scroll">
+            <div class="level-grid" id="level-grid"></div>
+        </div>
+    </div>
+
+    <!-- ===== OVERLAY ===== -->
+    <div id="overlay">
+        <div class="overlay-box">
+            <h2 id="ol-title">🎉 Gratulálok!</h2>
+            <div class="msg" id="ol-msg">Teljesítetted a szintet!</div>
+            <div class="reward" id="ol-reward"></div>
+            <div class="overlay-btns">
+                <button class="btn-primary" id="ol-continue">Folytatás</button>
+                <button class="btn-secondary" id="ol-menu">Menü</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== TOAST ===== -->
+    <div id="toast"></div>
+</div>
+
+<script>
+// ============================================================
+//  SZTOJA GAME - Teljes játéklogika
+// ============================================================
+
+// ===== ADATOK =====
+const BACKGROUNDS = [
+    { id: 'bg0', name: 'Űr', emoji: '🌌', price: 0, colors: ['#0B0B1A', '#1A0A2E'] },
+    { id: 'bg1', name: 'Sivatag', emoji: '🏜️', price: 80, colors: ['#1A0F0A', '#3A2A1A'] },
+    { id: 'bg2', name: 'Erdő', emoji: '🌿', price: 120, colors: ['#0A1A0A', '#1A3A1A'] },
+    { id: 'bg3', name: 'Láva', emoji: '🌋', price: 160, colors: ['#1A0A0A', '#3A1A0A'] },
+    { id: 'bg4', name: 'Jég', emoji: '❄️', price: 200, colors: ['#0A1A2A', '#1A3A5A'] },
+    { id: 'bg5', name: 'Cukorka', emoji: '🍭', price: 240, colors: ['#2A0A2A', '#4A1A4A'] },
+    { id: 'bg6', name: 'Óceán', emoji: '🌊', price: 280, colors: ['#0A1A2A', '#0A3A5A'] },
+    { id: 'bg7', name: 'Éjszaka', emoji: '🌙', price: 320, colors: ['#0A0A1A', '#1A0A3A'] },
+];
+
+const STYLES = [
+    { id: 'style0', name: 'Normál', price: 0, colors: ['#FF6B35', '#F7C948', '#4ECDC4', '#FF6B6B', '#A8E6CF'] },
+    { id: 'style1', name: 'Neon', price: 100, colors: ['#FF00FF', '#00FFFF', '#FF00FF', '#FFFF00', '#FF00FF'] },
+    { id: 'style2', name: 'Pasztell', price: 150, colors: ['#FFB3BA', '#FFDFBA', '#FFFFBA', '#BAFFC9', '#BAE1FF'] },
+    { id: 'style3', name: 'Arany', price: 200, colors: ['#FFD700', '#FFA500', '#FFD700', '#FFC125', '#DAA520'] },
+    { id: 'style4', name: 'Szivárvány', price: 250, colors: ['#FF0000', '#FF7F00', '#FFFF00', '#00FF00', '#0000FF'] },
+    { id: 'style5', name: 'Kristály', price: 300, colors: ['#E0F7FA', '#B2EBF2', '#80DEEA', '#4DD0E1', '#26C6DA'] },
+];
+
+const ICONS = [
+    { id: 'icon0', name: 'Nincs', emoji: '', price: 0 },
+    { id: 'icon1', name: 'Csillag', emoji: '⭐', price: 60 },
+    { id: 'icon2', name: 'Szív', emoji: '❤️', price: 80 },
+    { id: 'icon3', name: 'Tűz', emoji: '🔥', price: 100 },
+    { id: 'icon4', name: 'Korona', emoji: '👑', price: 140 },
+    { id: 'icon5', name: 'Gyémánt', emoji: '💎', price: 180 },
+    { id: 'icon6', name: 'Sárkány', emoji: '🐉', price: 220 },
+    { id: 'icon7', name: 'Villám', emoji: '⚡', price: 260 },
+];
+
+const POWERUPS = [
+    { id: 'extraPoints', name: '50% Plusz Pont', emoji: '📈', price: 5000, desc: '+50% pont minden lépésnél' },
+    { id: 'easyMode', name: 'Könnyű Darabok', emoji: '🍀', price: 5000, desc: 'Kisebb blokkok jönnek' },
+    { id: 'autoCombo', name: 'Auto Combo', emoji: '⚡', price: 5000, desc: 'Combo sose csökken' },
+    { id: 'doubleGem', name: 'Dupla Gyémánt', emoji: '💎💎', price: 5000, desc: 'Dupla gem a történetben' },
+];
+
+const WORLDS = [
+    { name: '🌱 Kezdő', minLevel: 0, baseReward: 20 },
+    { name: '🏜️ Sivatag', minLevel: 5, baseReward: 30 },
+    { name: '🌊 Óceán', minLevel: 10, baseReward: 40 },
+    { name: '🌋 Tűz', minLevel: 15, baseReward: 50 },
+    { name: '❄️ Jég', minLevel: 20, baseReward: 60 },
+    { name: '👹 Pokol', minLevel: 25, baseReward: 70 },
+    { name: '🔮 Mágia', minLevel: 30, baseReward: 80 },
+    { name: '✨ Csillag', minLevel: 35, baseReward: 90 },
+    { name: '⚡ Villám', minLevel: 40, baseReward: 100 },
+    { name: '👑 Királyi', minLevel: 45, baseReward: 120 },
+];
+
+const PIECE_SHAPES = [
+    [[1,1],[1,1]],
+    [[1,1,1]],
+    [[1],[1],[1]],
+    [[1,1,1],[0,0,1]],
+    [[1,1,1],[1,0,0]],
+    [[1,1,0],[0,1,1]],
+    [[0,1,0],[1,1,1]],
+    [[1,1,1,1]],
+    [[1],[1],[1],[1]],
+    [[1,1],[1,0]],
+    [[1,0],[1,1]],
+];
+
+const EASY_SHAPES = [
+    [[1,1],[1,1]],
+    [[1,1,1]],
+    [[1,1]],
+];
+
+// ===== ÁLLAPOT =====
+let gems = parseInt(localStorage.getItem('sztoja_gems') || '100');
+let owned = JSON.parse(localStorage.getItem('sztoja_owned') || '["bg0","style0","icon0"]');
+let activeBg = localStorage.getItem('sztoja_bg') || 'bg0';
+let activeStyle = localStorage.getItem('sztoja_style') || 'style0';
+let activeIcon = localStorage.getItem('sztoja_icon') || 'icon0';
+let completedLevels = JSON.parse(localStorage.getItem('sztoja_levels') || '[]');
+let powerups = JSON.parse(localStorage.getItem('sztoja_powerups') || '{}');
+
+let board = [], pieces = [], selectedPiece = null, score = 0, combo = 1;
+let gameMode = 'classic', storyLevel = null, targetScore = 120;
+let gameActive = true, isDragging = false, dragData = null;
+let previewCells = new Set();
+
+// ===== SEGÉDFÜGGVÉNYEK =====
+function saveState() {
+    localStorage.setItem('sztoja_gems', gems);
+    localStorage.setItem('sztoja_owned', JSON.stringify(owned));
+    localStorage.setItem('sztoja_bg', activeBg);
+    localStorage.setItem('sztoja_style', activeStyle);
+    localStorage.setItem('sztoja_icon', activeIcon);
+    localStorage.setItem('sztoja_levels', JSON.stringify(completedLevels));
+    localStorage.setItem('sztoja_powerups', JSON.stringify(powerups));
+}
+
+function updateGems() {
+    document.getElementById('gem-count').textContent = gems;
+}
+
+function toast(msg, duration = 2000) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(el._timeout);
+    el._timeout = setTimeout(() => el.classList.remove('show'), duration);
+}
+
+function getTargetScore(level) {
+    if (level === 0) return 120;
+    let raw = 120 * Math.pow(1.28, level);
+    return Math.min(Math.floor(raw), 10000000);
+}
+
+function getStyleColors() {
+    const s = STYLES.find(x => x.id === activeStyle);
+    return s ? s.colors : STYLES[0].colors;
+}
+
+function getBgColors() {
+    const b = BACKGROUNDS.find(x => x.id === activeBg);
+    return b ? b.colors : BACKGROUNDS[0].colors;
+}
+
+function hasPowerup(id) {
+    return powerups[id] === true;
+}
+
+// ===== RÉSZECSKÉK =====
+function spawnParticles(x, y, count = 12, colors = ['#FFD700', '#00E5FF', '#FF6B6B', '#39FF14']) {
+    for (let i = 0; i < count; i++) {
+        const el = document.createElement('div');
+        el.className = 'particle';
+        const size = 4 + Math.random() * 8;
+        el.style.width = size + 'px';
+        el.style.height = size + 'px';
+        el.style.background = colors[Math.floor(Math.random() * colors.length)];
+        el.style.left = (x + (Math.random() - 0.5) * 40) + 'px';
+        el.style.top = (y + (Math.random() - 0.5) * 40) + 'px';
+        el.style.setProperty('--tx', (Math.random() - 0.5) * 160 + 'px');
+        el.style.setProperty('--ty', (Math.random() - 0.5) * 160 + 'px');
+        el.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 700);
+    }
+}
+
+// ===== JÁTÉK =====
+function initBoard() {
+    board = Array.from({ length: 8 }, () => Array(8).fill(null));
+}
+
+function spawnPieces() {
+    pieces = [];
+    const shapes = hasPowerup('easyMode') ? EASY_SHAPES : PIECE_SHAPES;
+    const colors = getStyleColors();
+    for (let i = 0; i < 3; i++) {
+        const shape = shapes[Math.floor(Math.random() * shapes.length)];
+        pieces.push({
+            shape: shape.map(row => [...row]),
+            color: colors[Math.floor(Math.random() * colors.length)],
+            used: false
+        });
+    }
+}
+
+function canPlace(shape, r, c) {
+    for (let dr = 0; dr < shape.length; dr++) {
+        for (let dc = 0; dc < shape[0].length; dc++) {
+            if (shape[dr][dc]) {
+                const nr = r + dr, nc = c + dc;
+                if (nr < 0 || nr >= 8 || nc < 0 || nc >= 8 || board[nr][nc] !== null) return false;
+            }
+        }
+    }
+    return true;
+}
+
+function hasAnyMove() {
+    for (let i = 0; i < pieces.length; i++) {
+        if (pieces[i].used) continue;
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                if (canPlace(pieces[i].shape, r, c)) return true;
+            }
+        }
+    }
+    return false;
+}
+
+function clearLines() {
+    let toClear = new Set();
+    let cleared = 0;
+    for (let r = 0; r < 8; r++) {
+        if (board[r].every(cell => cell !== null)) {
+            for (let c = 0; c < 8; c++) toClear.add(`${r},${c}`);
+            cleared++;
+        }
+    }
+    for (let c = 0; c < 8; c++) {
+        if (board.every(row => row[c] !== null)) {
+            for (let r = 0; r < 8; r++) toClear.add(`${r},${c}`);
+            cleared++;
+        }
+    }
+    if (cleared > 0) {
+        toClear.forEach(key => {
+            const [r, c] = key.split(',').map(Number);
+            board[r][c] = null;
+            const cell = document.querySelector(`#board .cell[data-r="${r}"][data-c="${c}"]`);
+            if (cell) cell.classList.add('removing');
+        });
+        setTimeout(() => renderBoard(), 250);
+    }
+    return cleared;
+}
+
+function tryPlace(pieceIdx, row, col) {
+    if (!gameActive) return false;
+    const p = pieces[pieceIdx];
+    if (p.used || !canPlace(p.shape, row, col)) {
+        toast('❌ Ide nem fér!');
+        return false;
+    }
+
+    // Helyezés
+    p.shape.forEach((rarr, dr) => rarr.forEach((v, dc) => {
+        if (v) board[row + dr][col + dc] = p.color;
+    }));
+    p.used = true;
+    selectedPiece = null;
+    renderBoard();
+
+    // Pontszámítás
+    const cleared = clearLines();
+    let pts = 0;
+    if (cleared > 0) {
+        if (!hasPowerup('autoCombo')) {
+            combo = Math.min(combo + cleared, 10);
+        } else {
+            combo = Math.min(combo + cleared, 15);
+        }
+        pts = cleared * 60 * combo;
+        if (hasPowerup('extraPoints')) pts = Math.floor(pts * 1.5);
+        score += pts;
+        
+        // Részecskék
+        const cell = document.querySelector(`#board .cell[data-r="${row}"][data-c="${col}"]`);
+        if (cell) {
+            const rect = cell.getBoundingClientRect();
+            spawnParticles(rect.left + rect.width/2, rect.top + rect.height/2);
+        }
+        if (cleared >= 2) toast(`🔥 Combo x${combo}! +${pts} pont`);
+    }
+    updateScore();
+    renderPieces();
+
+    // Új darabok vagy game over
+    if (pieces.every(p => p.used)) {
+        setTimeout(() => {
+            if (gameActive) {
+                spawnPieces();
+                renderPieces();
+                if (!hasAnyMove()) gameOver(false);
+            }
+        }, 300);
+    } else if (!hasAnyMove()) {
+        gameOver(false);
+    }
+
+    // Story cél ellenőrzés
+    if (gameMode === 'story' && storyLevel !== null && score >= targetScore) {
+        completeStoryLevel();
+    }
+    return true;
+}
+
+function gameOver(won) {
+    if (!gameActive) return;
+    gameActive = false;
+    if (gameMode === 'story' && storyLevel !== null && score >= targetScore) {
+        completeStoryLevel();
+        return;
+    }
+    document.getElementById('ol-title').textContent = won ? '🎉 Győzelem!' : '💔 Játék vége';
+    document.getElementById('ol-msg').textContent = won ? 'Teljesítetted a szintet!' : `Pontszámod: ${score.toLocaleString()}`;
+    document.getElementById('ol-reward').textContent = won ? '' : 'Próbáld újra!';
+    document.getElementById('overlay').classList.add('show');
+}
+
+function completeStoryLevel() {
+    if (!gameActive) return;
+    gameActive = false;
+    if (!completedLevels.includes(storyLevel)) {
+        completedLevels.push(storyLevel);
+        completedLevels.sort((a, b) => a - b);
+    }
+    const reward = 20 + Math.floor(storyLevel / 3) * (hasPowerup('doubleGem') ? 2 : 1);
+    gems += reward;
+    saveState();
+    updateGems();
+    document.getElementById('ol-title').textContent = '🎉 Szint kész!';
+    document.getElementById('ol-msg').textContent = `🎯 Cél: ${targetScore.toLocaleString()} | Pont: ${score.toLocaleString()}`;
+    document.getElementById('ol-reward').textContent = `💎 +${reward} gyémánt`;
+    document.getElementById('overlay').classList.add('show');
+}
+
+// ===== MEGJELENÍTÉS =====
+function renderBoard() {
+    const container = document.getElementById('board');
+    container.innerHTML = '';
+    for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.dataset.r = r;
+            cell.dataset.c = c;
+            if (board[r][c]) {
+                cell.classList.add('filled');
+                cell.style.background = board[r][c];
+                const icon = ICONS.find(x => x.id === activeIcon);
+                if (icon && icon.emoji) {
+                    const ic = document.createElement('span');
+                    ic.className = 'cell-icon';
+                    ic.textContent = icon.emoji;
+                    cell.appendChild(ic);
+                }
+            }
+            // Drag & drop események
+            cell.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                if (selectedPiece !== null && !pieces[selectedPiece]?.used) {
+                    const p = pieces[selectedPiece];
+                    updatePreview(p.shape, r, c, canPlace(p.shape, r, c));
+                }
+            });
+            cell.addEventListener('dragleave', () => clearPreview());
+            cell.addEventListener('drop', (e) => {
+                e.preventDefault();
+                clearPreview();
+                if (selectedPiece !== null) {
+                    tryPlace(selectedPiece, r, c);
+                }
+            });
+            cell.addEventListener('click', () => {
+                if (selectedPiece !== null) {
+                    tryPlace(selectedPiece, r, c);
+                }
+            });
+            // Touch támogatás
+            cell.addEventListener('touchstart', (e) => {
+                if (selectedPiece !== null) {
+                    tryPlace(selectedPiece, r, c);
+                }
+            });
+            container.appendChild(cell);
+        }
+    }
+    // Háttér beállítás
+    const bg = BACKGROUNDS.find(x => x.id === activeBg);
+    if (bg) {
+        document.getElementById('board').style.background = `linear-gradient(135deg, ${bg.colors[0]}, ${bg.colors[1]})`;
+    }
+}
+
+function renderPieces() {
+    const area = document.getElementById('pieces-area');
+    area.innerHTML = '';
+    pieces.forEach((p, idx) => {
+        if (p.used) return;
+        const slot = document.createElement('div');
+        slot.className = 'piece-slot' + (selectedPiece === idx ? ' selected' : '');
+        slot.draggable = true;
+
+        slot.addEventListener('dragstart', (e) => {
+            if (p.used || !gameActive) { e.preventDefault(); return; }
+            selectedPiece = idx;
+            renderPieces();
+            // Drag image
+            const ghost = document.createElement('div');
+            ghost.style.display = 'grid';
+            ghost.style.gridTemplateColumns = `repeat(${p.shape[0].length}, 24px)`;
+            ghost.style.gap = '3px';
+            ghost.style.padding = '6px';
+            ghost.style.background = 'rgba(0,0,0,0.8)';
+            ghost.style.borderRadius = '12px';
+            ghost.style.border = '2px solid gold';
+            p.shape.forEach(row => row.forEach(v => {
+                const d = document.createElement('div');
+                d.style.width = '24px';
+                d.style.height = '24px';
+                d.style.borderRadius = '5px';
+                if (v) {
+                    d.style.background = p.color;
+                    d.style.boxShadow = '0 0 12px gold';
+                }
+                ghost.appendChild(d);
+            }));
+            document.body.appendChild(ghost);
+            e.dataTransfer.setDragImage(ghost, 30, 30);
+            setTimeout(() => ghost.remove(), 100);
+        });
+
+        slot.addEventListener('dragend', () => {
+            clearPreview();
+        });
+
+        slot.addEventListener('click', () => {
+            if (p.used || !gameActive) return;
+            if (selectedPiece === idx) {
+                selectedPiece = null;
+            } else {
+                selectedPiece = idx;
+            }
+            renderPieces();
+        });
+
+        // Touch támogatás
+        slot.addEventListener('touchstart', (e) => {
+            if (p.used || !gameActive) return;
+            if (selectedPiece === idx) {
+                selectedPiece = null;
+            } else {
+                selectedPiece = idx;
+            }
+            renderPieces();
+            e.preventDefault();
+        });
+
+        const grid = document.createElement('div');
+        grid.className = 'piece-grid';
+        grid.style.gridTemplateColumns = `repeat(${p.shape[0].length}, 1fr)`;
+        p.shape.forEach(row => row.forEach(v => {
+            const d = document.createElement('div');
+            d.className = 'piece-cell' + (v ? ' filled' : '');
+            if (v) d.style.background = p.color;
+            grid.appendChild(d);
+        }));
+        slot.appendChild(grid);
+        area.appendChild(slot);
+    });
+}
+
+function updatePreview(shape, color, row, col, valid) {
+    clearPreview();
+    if (!shape) return;
+    for (let dr = 0; dr < shape.length; dr++) {
+        for (let dc = 0; dc < shape[0].length; dc++) {
+            if (shape[dr][dc]) {
+                const nr = row + dr, nc = col + dc;
+                if (nr >= 0 && nr < 8 && nc >= 0 && nc < 8) {
+                    const cell = document.querySelector(`#board .cell[data-r="${nr}"][data-c="${nc}"]`);
+                    if (cell) {
+                        cell.classList.add(valid ? 'preview-active' : 'preview-invalid');
+                        previewCells.add(`${nr},${nc}`);
+                    }
+                }
+            }
+        }
+    }
+}
+
+function clearPreview() {
+    previewCells.forEach(key => {
+        const [r, c] = key.split(',').map(Number);
+        const cell = document.querySelector(`#board .cell[data-r="${r}"][data-c="${c}"]`);
+        if (cell) cell.classList.remove('preview-active', 'preview-invalid');
+    });
+    previewCells.clear();
+}
+
+function updateScore() {
+    document.getElementById('score-val').textContent = score.toLocaleString();
+    document.getElementById('target-display').textContent = gameMode === 'story' ? 
+        `🎯 ${score.toLocaleString()} / ${targetScore.toLocaleString()}` : 
+        `🎯 Cél: ${targetScore.toLocaleString()}`;
+    document.getElementById('combo-display').textContent = `⚡ x${combo}`;
+}
+
+// ===== JÁTÉK INDÍTÁS =====
+function startGame(mode, level = null) {
+    gameMode = mode;
+    storyLevel = level;
+    score = 0;
+    combo = 1;
+    selectedPiece = null;
+    gameActive = true;
+    targetScore = mode === 'story' ? getTargetScore(level) : 120;
+    initBoard();
+    spawnPieces();
+    renderBoard();
+    renderPieces();
+    updateScore();
+    clearPreview();
+    showScreen('game-screen');
+    if (mode === 'story') toast(`🎯 ${level+1}. szint: ${targetScore.toLocaleString()} pont`);
+    if (mode === 'classic') toast('🎮 Klasszikus mód - érj el 120 pontot!');
+}
+
+// ===== KÉPERNYŐK =====
+function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    if (id === 'shop-screen') renderShop();
+    if (id === 'story-screen') renderStory();
+}
+
+// ===== BOLT =====
+function renderShop() {
+    updateGems();
+    const bgContainer = document.getElementById('bg-shop');
+    bgContainer.innerHTML = '';
+    BACKGROUNDS.forEach(bg => {
+        const ownedFlag = owned.includes(bg.id);
+        const active = activeBg === bg.id;
+        const div = document.createElement('div');
+        div.className = 'shop-item' + (ownedFlag ? ' owned' : '') + (active ? ' active-item' : '');
+        div.innerHTML = `
+            <div class="preview">${bg.emoji}</div>
+            <div class="name">${bg.name}</div>
+            <div class="price">${bg.price === 0 ? '🎁 Ingyen' : '💎 '+bg.price}</div>
+        `;
+        div.onclick = () => {
+            if (!ownedFlag && gems >= bg.price) {
+                gems -= bg.price;
+                owned.push(bg.id);
+                saveState();
+                toast(`✅ ${bg.name} megvéve!`);
+            }
+            if (ownedFlag) {
+                activeBg = bg.id;
+                saveState();
+                document.getElementById('board').style.background = `linear-gradient(135deg, ${bg.colors[0]}, ${bg.colors[1]})`;
+            }
+            renderShop();
+        };
+        bgContainer.appendChild(div);
+    });
+
+    const styleContainer = document.getElementById('style-shop');
+    styleContainer.innerHTML = '';
+    STYLES.forEach(s => {
+        const ownedFlag = owned.includes(s.id);
+        const active = activeStyle === s.id;
+        const div = document.createElement('div');
+        div.className = 'shop-item' + (ownedFlag ? ' owned' : '') + (active ? ' active-item' : '');
+        const colors = s.colors.slice(0, 4).map(c => `<span style="display:inline-block;width:16px;height:16px;border-radius:4px;background:${c};"></span>`).join('');
+        div.innerHTML = `
+            <div style="font-size:0.8rem;margin-bottom:4px;">${colors}</div>
+            <div class="name">${s.name}</div>
+            <div class="price">${s.price === 0 ? '🎁 Ingyen' : '💎 '+s.price}</div>
+        `;
+        div.onclick = () => {
+            if (!ownedFlag && gems >= s.price) {
+                gems -= s.price;
+                owned.push(s.id);
+                saveState();
+                toast(`🎨 ${s.name} stílus!`);
+            }
+            if (ownedFlag) {
+                activeStyle = s.id;
+                saveState();
+            }
+            renderShop();
+        };
+        styleContainer.appendChild(div);
+    });
+
+    const iconContainer = document.getElementById('icon-shop');
+    iconContainer.innerHTML = '';
+    ICONS.forEach(ic => {
+        const ownedFlag = owned.includes(ic.id);
+        const active = activeIcon === ic.id;
+        const div = document.createElement('div');
+        div.className = 'shop-item' + (ownedFlag ? ' owned' : '') + (active ? ' active-item' : '');
+        div.innerHTML = `
+            <div class="preview">${ic.emoji || '🚫'}</div>
+            <div class="name">${ic.name}</div>
+            <div class="price">${ic.price === 0 ? '🎁 Ingyen' : '💎 '+ic.price}</div>
+        `;
+        div.onclick = () => {
+            if (!ownedFlag && gems >= ic.price) {
+                gems -= ic.price;
+                owned.push(ic.id);
+                saveState();
+                toast(`✨ ${ic.name} ikon!`);
+            }
+            if (ownedFlag) {
+                activeIcon = ic.id;
+                saveState();
+            }
+            renderShop();
+        };
+        iconContainer.appendChild(div);
+    });
+
+    const powerContainer = document.getElementById('powerup-shop');
+    powerContainer.innerHTML = '';
+    POWERUPS.forEach(p => {
+        const active = hasPowerup(p.id);
+        const div = document.createElement('div');
+        div.className = 'shop-item' + (active ? ' owned' : '');
+        div.innerHTML = `
+            <div class="preview">${p.emoji}</div>
+            <div class="name">${p.name}</div>
+            <div class="price">${active ? '✅ Aktív' : '💎 '+p.price}</div>
+        `;
+        div.onclick = () => {
+            if (active) {
+                toast('⚠️ Már aktív!');
+                return;
+            }
+            if (gems >= p.price) {
+                gems -= p.price;
+                powerups[p.id] = true;
+                saveState();
+                toast(`✅ ${p.name} aktiválva!`);
+                renderShop();
+            } else {
+                toast('❌ Nincs elég gyémánt!');
+            }
+        };
+        powerContainer.appendChild(div);
+    });
+}
+
+// ===== TÖRTÉNET =====
+function renderStory() {
+    const tabs = document.getElementById('world-tabs');
+    tabs.innerHTML = '';
+    WORLDS.forEach((w, idx) => {
+        const unlocked = completedLevels.length >= w.minLevel || idx === 0;
+        const tab = document.createElement('button');
+        tab.className = 'world-tab' + (unlocked ? '' : ' locked');
+        tab.textContent = w.name;
+        tab.onclick = () => {
+            if (unlocked) renderLevels(idx);
+        };
+        tabs.appendChild(tab);
+    });
+    renderLevels(0);
+}
+
+function renderLevels(worldIdx) {
+    const grid = document.getElementById('level-grid');
+    grid.innerHTML = '';
+    const w = WORLDS[worldIdx];
+    if (!w) return;
+    const startLevel = worldIdx * 10;
+    const unlocked = completedLevels.length >= w.minLevel || worldIdx === 0;
+    if (!unlocked) {
+        grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;color:var(--text-dim);padding:40px 0;">🔒 Teljesítsd az előző világot!</div>`;
+        return;
+    }
+    for (let i = 0; i < 10; i++) {
+        const level = startLevel + i;
+        const completed = completedLevels.includes(level);
+        const prevDone = i === 0 || completedLevels.includes(level - 1);
+        const target = getTargetScore(level);
+        const btn = document.createElement('button');
+        btn.className = 'level-btn' + (completed ? ' completed' : '') + (prevDone ? '' : ' locked');
+        btn.innerHTML = `
+            <div class="lvl-num">${i+1}</div>
+            <div class="lvl-target">${target >= 1000000 ? (target/1000000).toFixed(1)+'M' : target.toLocaleString()}</div>
+            ${completed ? '<div class="star">⭐</div>' : ''}
+        `;
+        if (prevDone) {
+            btn.onclick = () => startGame('story', level);
+        }
+        grid.appendChild(btn);
+    }
+}
+
+// ===== ESEMÉNYEK =====
+document.getElementById('startClassicBtn').onclick = () => startGame('classic');
+document.getElementById('storyMenuBtn').onclick = () => { renderStory(); showScreen('story-screen'); };
+document.getElementById('shopMenuBtn').onclick = () => { renderShop(); showScreen('shop-screen'); };
+document.getElementById('gameBackBtn').onclick = () => showScreen('menu-screen');
+document.getElementById('shopBackBtn').onclick = () => showScreen('menu-screen');
+document.getElementById('storyBackBtn').onclick = () => showScreen('menu-screen');
+
+document.getElementById('ol-continue').onclick = () => {
+    document.getElementById('overlay').classList.remove('show');
+    if (gameMode === 'story' && storyLevel !== null) {
+        startGame('story', storyLevel + 1);
+    } else {
+        startGame('classic');
+    }
+};
+document.getElementById('ol-menu').onclick = () => {
+    document.getElementById('overlay').classList.remove('show');
+    showScreen('menu-screen');
+};
+
+// ===== INDIULÁS =====
+updateGems();
+showScreen('menu-screen');
+toast('🎮 100 gyémánttal indítasz!', 3000);
+
+// ===== HÁTTÉR RÉSZECSKÉK =====
+(function initParticles() {
+    const container = document.createElement('div');
+    container.className = 'bg-particles';
+    for (let i = 0; i < 30; i++) {
+        const span = document.createElement('span');
+        span.style.left = Math.random() * 100 + '%';
+        span.style.animationDuration = (15 + Math.random() * 25) + 's';
+        span.style.animationDelay = (Math.random() * 20) + 's';
+        span.style.width = (2 + Math.random() * 4) + 'px';
+        span.style.height = span.style.width;
+        container.appendChild(span);
+    }
+    document.body.prepend(container);
+})();
+
+console.log('🏆 SZTOJA GAME v2.0 - Minden jog fenntartva!');
+console.log('💎 Gyémántok:', gems);
+console.log('📊 Teljesített szintek:', completedLevels.length);
+</script>
+</body>
+</html>
