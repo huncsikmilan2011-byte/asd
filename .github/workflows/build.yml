@@ -43,7 +43,7 @@ jobs:
             sed -i 's/minSdkVersion = .*/minSdkVersion = 23/g' android/variables.gradle
           fi
 
-      # JAVÍTÁS 2: Kényszerítjük a stabil BouncyCastle és AndroidX verziókat
+      # JAVÍTÁS 2: Kényszerítjük a stabil verziókat, hogy ne akadjon össze semmi
       - name: Fix AndroidX SDK 35 and BouncyCastle Bug
         run: |
           if [ -f "android/build.gradle" ]; then
@@ -67,11 +67,12 @@ jobs:
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v2
 
+      # JAVÍTÁS 3: Korlátozzuk a memóriát (org.gradle.jvmargs), hogy ne omoljon össze a gép hibaüzenet nélkül
       - name: Build APK
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleDebug --no-daemon -Dorg.gradle.jvmargs="-Xmx2048m -XX:MaxMetaspaceSize=512m"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
