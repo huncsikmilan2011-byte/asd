@@ -22,25 +22,31 @@ jobs:
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21' # <-- Átírva 21-re a jobb Gradle 8.2+ kompatibilitás miatt
 
       - name: Install dependencies
         run: npm install
 
-      - name: Add Android platform
-        run: npx cap add android
+      # Biztonsági lépés: Ha már létezik az android mappa, a cap add hibát adna.
+      # Ezzel a paranccsal csak akkor adja hozzá, ha még nincs ott.
+      - name: Add Android platform if not exists
+        run: |
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
 
       - name: Sync Capacitor
         run: npx cap sync android
 
-      - name: Clean Gradle cache
-        run: rm -rf ~/.gradle/caches/
+      # Beépített Gradle gyorsítótár kezelő (ez sokkal megbízhatóbb, mint a kézi törlés)
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
 
       - name: Build APK
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --refresh-dependencies
+          ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
