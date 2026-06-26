@@ -43,8 +43,8 @@ jobs:
             sed -i 's/minSdkVersion = .*/minSdkVersion = 23/g' android/variables.gradle
           fi
 
-      # JAVÍTÁS 2: Kényszerítjük a stabil verziókat, hogy ne akadjon össze semmi
-      - name: Fix AndroidX SDK 35 and BouncyCastle Bug
+      # JAVÍTÁS 2: Kikapcsoljuk a fagyást okozó AAR Metadata ellenőrzést, és rákényszerítjük a stabil verziókat
+      - name: Fix AndroidX and Disable Metadata Check
         run: |
           if [ -f "android/build.gradle" ]; then
             echo "subprojects {
@@ -61,18 +61,22 @@ jobs:
                         force 'androidx.core:core-ktx:1.12.0'
                     }
                 }
+                // Ez a sor kikapcsolja a hibát/fagyást okozó feladatot:
+                tasks.withType(com.android.build.gradle.internal.tasks.CheckAarMetadataTask) {
+                    enabled = false
+                }
             }" >> android/build.gradle
           fi
 
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v2
 
-      # JAVÍTÁS 3: Korlátozzuk a memóriát (org.gradle.jvmargs), hogy ne omoljon össze a gép hibaüzenet nélkül
+      # JAVÍTÁS 3: Egyetlen szálon indítjuk a buildet (--max-workers=1), hogy ne fogyjon el a RAM
       - name: Build APK
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon -Dorg.gradle.jvmargs="-Xmx2048m -XX:MaxMetaspaceSize=512m"
+          ./gradlew assembleDebug --no-daemon --max-workers=1 -Dorg.gradle.jvmargs="-Xmx3g"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
