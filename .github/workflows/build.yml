@@ -36,7 +36,14 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
-      # JAVÍTÁS: Kényszerítjük a BouncyCastle-t ÉS az SDK 34-kompatibilis AndroidX verziót is
+      # JAVÍTÁS 1: Beállítjuk a minSdkVersion-t 23-ra a hirdetések miatt
+      - name: Update minSdkVersion to 23
+        run: |
+          if [ -f "android/variables.gradle" ]; then
+            sed -i 's/minSdkVersion = .*/minSdkVersion = 23/g' android/variables.gradle
+          fi
+
+      # JAVÍTÁS 2: Kényszerítjük a stabil BouncyCastle és AndroidX verziókat
       - name: Fix AndroidX SDK 35 and BouncyCastle Bug
         run: |
           if [ -f "android/build.gradle" ]; then
