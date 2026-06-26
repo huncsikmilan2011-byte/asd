@@ -22,7 +22,7 @@ jobs:
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21' # <-- JAVÍTÁS: Felemelve 21-re, hogy az AdMob plugin le tudjon fordulni
 
       - name: Install dependencies
         run: npm install
@@ -36,14 +36,14 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
-      # JAVÍTÁS 1: Beállítjuk a minSdkVersion-t 23-ra a hirdetések miatt
+      # Beállítjuk a minSdkVersion-t 23-ra a hirdetések miatt
       - name: Update minSdkVersion to 23
         run: |
           if [ -f "android/variables.gradle" ]; then
             sed -i 's/minSdkVersion = .*/minSdkVersion = 23/g' android/variables.gradle
           fi
 
-      # JAVÍTÁS 2: Kikapcsoljuk a fagyást okozó AAR Metadata ellenőrzést, és rákényszerítjük a stabil verziókat
+      # Kényszerítjük a stabil verziókat és kikapcsoljuk az AAR ellenőrzést
       - name: Fix AndroidX and Disable Metadata Check
         run: |
           if [ -f "android/build.gradle" ]; then
@@ -61,7 +61,6 @@ jobs:
                         force 'androidx.core:core-ktx:1.12.0'
                     }
                 }
-                // Ez a sor kikapcsolja a hibát/fagyást okozó feladatot:
                 tasks.withType(com.android.build.gradle.internal.tasks.CheckAarMetadataTask) {
                     enabled = false
                 }
@@ -71,7 +70,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v2
 
-      # JAVÍTÁS 3: Egyetlen szálon indítjuk a buildet (--max-workers=1), hogy ne fogyjon el a RAM
+      # Egyetlen szálon indítjuk a buildet, biztonságos memóriabeállítással
       - name: Build APK
         run: |
           cd android
