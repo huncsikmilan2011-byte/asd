@@ -22,7 +22,7 @@ jobs:
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
-          java-version: '17' # Visszatérünk a 17-re, de kényszerített függőséggel
+          java-version: '17'
 
       - name: Install dependencies
         run: npm install
@@ -36,9 +36,8 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
-      # EZ A JAVÍTÁS: Belenyúlunk az android/build.gradle fájlba, 
-      # és rákényszerítjük a stabil BouncyCastle verziót, ami nem dob hibát.
-      - name: Fix BouncyCastle Gradle Bug
+      # JAVÍTÁS: Kényszerítjük a BouncyCastle-t ÉS az SDK 34-kompatibilis AndroidX verziót is
+      - name: Fix AndroidX SDK 35 and BouncyCastle Bug
         run: |
           if [ -f "android/build.gradle" ]; then
             echo "subprojects {
@@ -47,6 +46,12 @@ jobs:
                         resolutionStrategy {
                             force 'org.bouncycastle:bcprov-jdk18on:1.74'
                         }
+                    }
+                }
+                configurations.all {
+                    resolutionStrategy {
+                        force 'androidx.core:core:1.12.0'
+                        force 'androidx.core:core-ktx:1.12.0'
                     }
                 }
             }" >> android/build.gradle
@@ -59,7 +64,7 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
