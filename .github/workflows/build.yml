@@ -22,13 +22,11 @@ jobs:
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
-          java-version: '21' # <-- Átírva 21-re a jobb Gradle 8.2+ kompatibilitás miatt
+          java-version: '17' # Visszatérünk a 17-re, de kényszerített függőséggel
 
       - name: Install dependencies
         run: npm install
 
-      # Biztonsági lépés: Ha már létezik az android mappa, a cap add hibát adna.
-      # Ezzel a paranccsal csak akkor adja hozzá, ha még nincs ott.
       - name: Add Android platform if not exists
         run: |
           if [ ! -d "android" ]; then
@@ -38,7 +36,22 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
-      # Beépített Gradle gyorsítótár kezelő (ez sokkal megbízhatóbb, mint a kézi törlés)
+      # EZ A JAVÍTÁS: Belenyúlunk az android/build.gradle fájlba, 
+      # és rákényszerítjük a stabil BouncyCastle verziót, ami nem dob hibát.
+      - name: Fix BouncyCastle Gradle Bug
+        run: |
+          if [ -f "android/build.gradle" ]; then
+            echo "subprojects {
+                buildscript {
+                    configurations.all {
+                        resolutionStrategy {
+                            force 'org.bouncycastle:bcprov-jdk18on:1.74'
+                        }
+                    }
+                }
+            }" >> android/build.gradle
+          fi
+
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v2
 
@@ -46,7 +59,7 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
