@@ -328,17 +328,22 @@ let selectedAvatar='😎';
 let audioCtx=null, volume=0.7, musicInterval=null, musicActive=false;
 let draggedPieceIndex=null;
 
-// ADMOB INICIALIZÁLÁS ÉS BANNER MEGJELENÍTÉS (változatlan)
+// ADMOB INICIALIZÁLÁS ÉS BANNER MEGJELENÍTÉS (SAJÁT ID-KKAL, isTesting NÉLKÜL)
 async function initAdMob() {
     if (AdMobPlugin) {
         try {
-            await AdMobPlugin.initialize({});
+            // App ID inicializálása
+            await AdMobPlugin.initialize({
+                appId: 'ca-app-pub-8597122869755427~6438168416'
+            });
+            
+            // Banner megjelenítése a saját banner ID-val
             await AdMobPlugin.showBanner({
-                adId: 'ca-app-pub-3940256099942544/6300978111',
+                adId: 'ca-app-pub-8597122869755427/6254335584',
                 adSize: 'BANNER',
                 position: 'BOTTOM_CENTER',
-                margin: 0,
-                isTesting: true
+                margin: 0
+                // isTesting NINCS – éles hirdetések
             });
             document.getElementById('adBanner').style.display = 'none';
         } catch (error) {
