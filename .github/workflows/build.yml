@@ -1,4 +1,4 @@
-name: Build AAB
+name: Auto-Generate Key and Build AAB
 
 on:
   push:
@@ -75,19 +75,32 @@ jobs:
             }" >> android/build.gradle
           fi
 
+      # AUTOMATIKUS KULCSGENERÁLÁS: Létrehozunk egy kulcsot a háttérben
+      - name: Generate Release Key Automatically
+        run: |
+          keytool -genkey -v -keystore android/app/auto-release.jks \
+            -alias mykeyalias -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass MySecretPassword123 -keypass MySecretPassword123 \
+            -dname "CN=MyApp, OU=Dev, O=Company, L=City, S=State, C=US"
+
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v2
 
-      # Buildelés egyetlen szálon - APK helyett MÓDOSÍTVA AAB-re
-      - name: Build AAB
+      # Aláírt Release AAB buildelése az imént generált kulccsal
+      - name: Build Signed AAB
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew bundleDebug --no-daemon --max-workers=1 -Dorg.gradle.jvmargs="-Xmx3g"
+          ./gradlew bundleRelease \
+            -Pandroid.injected.signing.store.file=auto-release.jks \
+            -Pandroid.injected.signing.store.password="MySecretPassword123" \
+            -Pandroid.injected.signing.key.alias="mykeyalias" \
+            -Pandroid.injected.signing.key.password="MySecretPassword123" \
+            --no-daemon --max-workers=1 -Dorg.gradle.jvmargs="-Xmx3g"
 
-      # A letölthető fájl mentése - MÓDOSÍTVA az AAB útvonalára
-      - name: Upload AAB
+      # A kész, aláírt AAB fájl mentése
+      - name: Upload Signed AAB
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug-aab
-          path: android/app/build/outputs/bundle/debug/app-debug.aab
+          name: app-release-signed-aab
+          path: android/app/build/outputs/bundle/release/app-release.aab
