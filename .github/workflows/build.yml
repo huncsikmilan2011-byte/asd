@@ -27,27 +27,22 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Add Android platform if not exists
+      # Letöröljük a régi android mappát, hogy a friss konfigurációval hozza létre újra
+      - name: Recreate Android Platform from scratch
         run: |
-          if [ ! -d "android" ]; then
-            npx cap add android
-          fi
+          rm -rf android
+          npx cap add android
+          npx cap sync android
 
-      - name: Sync Capacitor
-        run: npx cap sync android
-
-      # ÚJ JAVÍTÁS: Ha a capacitor.config.ts-ből nem ment át, itt kényszerítve beírjuk az Android Manifestbe az AdMob ID-t
+      # JAVÍTÁS: Beírjuk a TE SAJÁT AdMob App ID-dat az Android Manifestbe
       - name: Inject AdMob App ID into AndroidManifest
         run: |
           MANIFEST_PATH="android/app/src/main/AndroidManifest.xml"
           if [ -f "$MANIFEST_PATH" ]; then
-            # Megnézzük, benne van-e már az AdMob metaadat, ha nincs, beszúrjuk az <application> tagon belülre
-            if ! grep -q "com.google.android.gms.ads.APPLICATION_ID" "$MANIFEST_PATH"; then
-              sed -i '/<\/application>/i \        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3347511713"\/>' "$MANIFEST_PATH"
-            fi
+            sed -i '/<\/application>/i \        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-8597122869755427~6438168416"\/>' "$MANIFEST_PATH"
           fi
 
-      # Frissítjük a minSdkVersion-t 23-ra, a compile és target SDK-t pedig 35-re (Android 15)
+      # Frissítjük az SDK verziókat 35-re az új mappában
       - name: Update Android SDK Versions to 35
         run: |
           if [ -f "android/variables.gradle" ]; then
@@ -83,7 +78,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v2
 
-      # Egyetlen szálon indítjuk a buildet, biztonságos memóriabeállítással
+      # Buildelés egyetlen szálon
       - name: Build APK
         run: |
           cd android
