@@ -77,7 +77,7 @@
         .cell.removing{animation:popOut 0.25s ease forwards}
         @keyframes popOut{0%{transform:scale(1);opacity:1}50%{transform:scale(1.5);opacity:0.5}100%{transform:scale(0);opacity:0}}
         #pieces-area{display:flex;gap:10px;padding:8px 10px;background:#141430;border-radius:18px;justify-content:space-around;flex-shrink:0;min-height:60px;box-shadow:0 12px 40px rgba(0,0,0,0.7)}
-        .piece-slot{cursor:grab;display:flex;flex-direction:column;align-items:center;padding:4px;border-radius:12px;transition:all 0.15s ease;touch-action:none;min-width:50px;position:relative}
+        .piece-slot{cursor:pointer;display:flex;flex-direction:column;align-items:center;padding:4px;border-radius:12px;transition:all 0.15s ease;touch-action:none;min-width:50px;position:relative}
         .piece-slot.selected{background:rgba(108,60,225,0.25);box-shadow:0 0 20px rgba(108,60,225,0.3);transform:scale(1.05)}
         .piece-slot.used{opacity:0.15;pointer-events:none}
         .piece-grid{display:grid;gap:2px}
@@ -328,24 +328,19 @@ let selectedAvatar='😎';
 let audioCtx=null, volume=0.7, musicInterval=null, musicActive=false;
 let draggedPieceIndex=null;
 
-// ADMOB INICIALIZÁLÁS ÉS BANNER MEGJELENÍTÉS
+// ADMOB INICIALIZÁLÁS ÉS BANNER MEGJELENÍTÉS (változatlan)
 async function initAdMob() {
     if (AdMobPlugin) {
         try {
-            // Inicializáljuk a Google AdMob rendszert az appban
             await AdMobPlugin.initialize({});
-            
-            // Megjelenítjük a banner hirdetést az adBanner nevű div helyén
             await AdMobPlugin.showBanner({
-                // Google hivatalos teszt banner ID-ja.
-                // Ha saját hirdetést akarsz, ezt cseréld le az AdMob felületén létrehozott banner ID-ra (amin / jel van)!
-                adId: 'ca-app-pub-3940256099942544/6300978111', 
+                adId: 'ca-app-pub-3940256099942544/6300978111',
                 adSize: 'BANNER',
                 position: 'BOTTOM_CENTER',
                 margin: 0,
                 isTesting: true
             });
-            document.getElementById('adBanner').style.display = 'none'; // Eltüntetjük a szöveges helyőrzőt, ha betöltődött az éles hirdetés
+            document.getElementById('adBanner').style.display = 'none';
         } catch (error) {
             console.error('AdMob hiba:', error);
             document.getElementById('adBanner').textContent = '📢 Hirdetés nem tudott betöltődni';
@@ -489,6 +484,7 @@ function tryPlace(pieceIdx,row,col){
     p.shape.forEach((rarr,dr)=>rarr.forEach((v,dc)=>{if(v)board[row+dr][col+dc]=p.color;}));
     p.used=true;
     if(selectedPiece===pieceIdx)selectedPiece=null;
+    clearPreview();
     renderBoard();
     const cleared=clearLines();
     let pts=0;
@@ -533,7 +529,38 @@ function completeStoryLevel(){
     document.getElementById('overlay').classList.add('show');
 }
 
-// Felület kirajzolása
+// ---- ELŐNÉZET (drag & drop vizuális segéd) ----
+function clearPreview() {
+    previewCells.forEach(key => {
+        const [r, c] = key.split(',').map(Number);
+        const cell = document.querySelector(`#board .cell[data-r="${r}"][data-c="${c}"]`);
+        if (cell) cell.classList.remove('preview-active', 'preview-invalid');
+    });
+    previewCells.clear();
+}
+
+function updatePreview(shape, row, col) {
+    clearPreview();
+    if (!shape) return;
+    const valid = canPlace(shape, row, col);
+    for (let dr = 0; dr < shape.length; dr++) {
+        for (let dc = 0; dc < shape[0].length; dc++) {
+            if (shape[dr][dc]) {
+                const nr = row + dr;
+                const nc = col + dc;
+                if (nr >= 0 && nr < 8 && nc >= 0 && nc < 8) {
+                    const cell = document.querySelector(`#board .cell[data-r="${nr}"][data-c="${nc}"]`);
+                    if (cell) {
+                        cell.classList.add(valid ? 'preview-active' : 'preview-invalid');
+                        previewCells.add(`${nr},${nc}`);
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Felület kirajzolása (módosítva: preview események)
 function renderBoard(){
     const container=document.getElementById('board');
     container.innerHTML='';
@@ -549,6 +576,14 @@ function renderBoard(){
                 cell.style.background=`radial-gradient(circle at 30% 30%, ${board[r][c]}, #050510)`;
                 if(emo){const ispan=document.createElement('span');ispan.className='cell-icon';ispan.textContent=emo;cell.appendChild(ispan);}
             }
+            // Egérmozgás – előnézet frissítése
+            cell.addEventListener('mouseenter', () => {
+                if (selectedPiece !== null && pieces[selectedPiece] && !pieces[selectedPiece].used) {
+                    const p = pieces[selectedPiece];
+                    updatePreview(p.shape, r, c);
+                }
+            });
+            cell.addEventListener('mouseleave', clearPreview);
             container.appendChild(cell);
         }
     }
@@ -563,6 +598,21 @@ function renderPieces(){
         if(p.used)slot.classList.add('used');
         if(selectedPiece===idx)slot.classList.add('selected');
         slot.dataset.idx=idx;
+        // Kattintás – darab kiválasztása
+        slot.addEventListener('click', (e) => {
+            if (p.used) return;
+            playClick();
+            if (selectedPiece === idx) {
+                selectedPiece = null;
+                clearPreview();
+            } else {
+                selectedPiece = idx;
+                // Ne rajzoljuk újra a teljes táblát, csak a darabokat
+                renderPieces();
+                // A táblán a meglévő cellák már figyelik a mouseenter-t, így frissül az előnézet
+            }
+            renderPieces(); // frissíti a kijelölést
+        });
         
         const grid=document.createElement('div');
         grid.className='piece-grid';
@@ -590,10 +640,11 @@ function switchScreen(id){
     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
 }
-function goToMenu(){playClick();switchScreen('menu-screen');}
+function goToMenu(){playClick();clearPreview();switchScreen('menu-screen');}
 function startGame(mode,level=null){
     playClick();initAudio();startMusic();
     gameMode=mode;storyLevel=level;score=0;combo=1;gameActive=true;
+    selectedPiece=null;clearPreview();
     initBoard();spawnPieces();renderBoard();renderPieces();updateScore();
     if(mode==='story'){
         targetScore=getTargetScore(level);
@@ -668,27 +719,8 @@ function handleLogin(){
 }
 function closeLogin(){userData={name:'Vendég',avatar:'😎'};checkUser();goToMenu();}
 
-// ESSEMÉNYKEZELŐK (Egér és Érintés)
+// ESSEMÉNYKEZELŐK
 function initControls(){
-    const area=document.getElementById('pieces-area');
-    
-    // Érintőképernyős (Mobil) vezérlés
-    area.addEventListener('touchstart',e=>{
-        const slot=e.target.closest('.piece-slot');
-        if(!slot||slot.classList.contains('used'))return;
-        draggedPieceIndex=parseInt(slot.dataset.idx);
-        document.querySelectorAll('.piece-slot').forEach(s=>s.classList.remove('selected'));
-        slot.classList.add('selected');
-        selectedPiece=draggedPieceIndex;
-    },{passive:true});
-
-    document.getElementById('board').addEventListener('click',e=>{
-        const cell=e.target.closest('.cell');
-        if(!cell||selectedPiece===null)return;
-        const r=parseInt(cell.dataset.r), c=parseInt(cell.dataset.c);
-        tryPlace(selectedPiece,r,c);
-    });
-
     // Profilkép választás
     document.getElementById('avatarSelect').addEventListener('click',e=>{
         const av=e.target.closest('.av');if(!av)return;
@@ -701,12 +733,20 @@ function initControls(){
     document.getElementById('volumeSlider').addEventListener('input',e=>{
         volume=parseInt(e.target.value)/100;
     });
+
+    // Kattintás a táblán – darab elhelyezése (ha van kiválasztva)
+    document.getElementById('board').addEventListener('click', (e) => {
+        const cell = e.target.closest('.cell');
+        if (!cell || selectedPiece === null) return;
+        const r = parseInt(cell.dataset.r);
+        const c = parseInt(cell.dataset.c);
+        tryPlace(selectedPiece, r, c);
+    });
 }
 
 // INDÍTÁS
 window.addEventListener('DOMContentLoaded',()=>{
     initControls();applyBg();checkUser();updateGems();
-    // Betöltjük a Google AdMobot, amikor elindul az app
     initAdMob();
 });
 </script>
