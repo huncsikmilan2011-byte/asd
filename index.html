@@ -43,7 +43,6 @@
         #login-screen .login-box .login-submit.secondary{background:rgba(255,255,255,0.08);margin-top:8px;font-size:0.9rem}
         #game-screen{padding:8px 12px 12px;gap:6px}
         .game-header{display:flex;justify-content:space-between;align-items:center;flex-shrink:0;padding:2px 0}
-        /* SZÉP VISSZA GOMB */
         .back-btn{
             background:rgba(255,255,255,0.06);
             border:1.5px solid rgba(255,255,255,0.08);
@@ -88,7 +87,6 @@
         .shop-scroll{flex:1;overflow-y:auto;padding-bottom:20px}
         .shop-header{display:flex;justify-content:space-between;align-items:center;padding:4px 0 12px;flex-shrink:0}
         .shop-header h2{font-family:'Fredoka One',cursive;font-size:1.4rem;background:linear-gradient(135deg,#FFD700,#00E5FF);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-        /* A boltban és történetben is ugyanaz a szép vissza gomb */
         .shop-header .back-btn, .story-scroll .back-btn {
             background:rgba(255,255,255,0.06);
             border:1.5px solid rgba(255,255,255,0.08);
@@ -251,15 +249,14 @@
         <span>🔊</span>
         <input type="range" id="volumeSlider" min="0" max="100" value="70">
     </div>
-    <div class="ad-banner-placeholder" id="adBanner">📢 Hirdetési hely</div>
+    <div class="ad-banner-placeholder" id="adBanner">📢 Hirdetés betöltése...</div>
 </div>
 
 <script>
-// ============================================================
-//  SZTOJA GAME - TELJES JÁTÉK (JAVÍTOTT VISSZA GOMBOKKAL)
-// ============================================================
+// Először megpróbáljuk beimportálni az AdMob modult a globális ablakból (Capacitor)
+const AdMobPlugin = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.AdMob;
 
-// ADATOK (ugyanazok, mint korábban)
+// Játék adatai
 const BACKGROUNDS = [
     {id:'bg0',name:'Űr',emoji:'🌌',price:0,colors:['#0B0B1A','#1A0A2E']},
     {id:'bg1',name:'Sivatag',emoji:'🏜️',price:80,colors:['#1A0F0A','#3A2A1A']},
@@ -312,7 +309,7 @@ const PIECE_SHAPES = [
 ];
 const EASY_SHAPES = [[[1,1],[1,1]],[[1,1,1]],[[1,1]]];
 
-// ÁLLAPOT
+// Állapotváltozók
 let gems = parseInt(localStorage.getItem('sztoja_gems')||'100');
 let owned = JSON.parse(localStorage.getItem('sztoja_owned')||'["bg0","style0","icon0"]');
 let activeBg = localStorage.getItem('sztoja_bg')||'bg0';
@@ -331,7 +328,34 @@ let selectedAvatar='😎';
 let audioCtx=null, volume=0.7, musicInterval=null, musicActive=false;
 let draggedPieceIndex=null;
 
-// SEGÉD
+// ADMOB INICIALIZÁLÁS ÉS BANNER MEGJELENÍTÉS
+async function initAdMob() {
+    if (AdMobPlugin) {
+        try {
+            // Inicializáljuk a Google AdMob rendszert az appban
+            await AdMobPlugin.initialize({});
+            
+            // Megjelenítjük a banner hirdetést az adBanner nevű div helyén
+            await AdMobPlugin.showBanner({
+                // Google hivatalos teszt banner ID-ja.
+                // Ha saját hirdetést akarsz, ezt cseréld le az AdMob felületén létrehozott banner ID-ra (amin / jel van)!
+                adId: 'ca-app-pub-3940256099942544/6300978111', 
+                adSize: 'BANNER',
+                position: 'BOTTOM_CENTER',
+                margin: 0,
+                isTesting: true
+            });
+            document.getElementById('adBanner').style.display = 'none'; // Eltüntetjük a szöveges helyőrzőt, ha betöltődött az éles hirdetés
+        } catch (error) {
+            console.error('AdMob hiba:', error);
+            document.getElementById('adBanner').textContent = '📢 Hirdetés nem tudott betöltődni';
+        }
+    } else {
+        document.getElementById('adBanner').textContent = '📢 Hirdetés szimuláció (Nem mobil környezet)';
+    }
+}
+
+// Mentési funkciók
 function saveState(){
     localStorage.setItem('sztoja_gems',gems);
     localStorage.setItem('sztoja_owned',JSON.stringify(owned));
@@ -358,6 +382,7 @@ function getStyleColors(){
     return s?s.colors:STYLES[0].colors;
 }
 function hasPowerup(id){return powerups[id]===true;}
+
 function spawnParticles(x,y,count=12){
     const colors=['#FFD700','#00E5FF','#FF6B6B','#39FF14'];
     for(let i=0;i<count;i++){
@@ -381,7 +406,7 @@ function spawnParticles(x,y,count=12){
     }
 }
 
-// HANG
+// Audió kezelése
 function initAudio(){if(!audioCtx){try{audioCtx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){}}}
 function playTone(freq,duration,type='sine',vol=0.3){
     try{initAudio();if(!audioCtx)return;const osc=audioCtx.createOscillator();const gain=audioCtx.createGain();osc.type=type;osc.frequency.value=freq;gain.gain.value=vol*volume;gain.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+duration);osc.connect(gain);gain.connect(audioCtx.destination);osc.start();osc.stop(audioCtx.currentTime+duration);}catch(e){}
@@ -390,6 +415,7 @@ function playClick(){playTone(800,0.08,'sine',0.2);}
 function playPlace(){playTone(600,0.1,'sine',0.25);setTimeout(()=>playTone(900,0.08,'sine',0.2),100);}
 function playClear(){playTone(500,0.1,'sine',0.3);setTimeout(()=>playTone(700,0.1,'sine',0.25),100);setTimeout(()=>playTone(1000,0.12,'sine',0.2),200);}
 function playWin(){[0,150,300,450].forEach((t,i)=>setTimeout(()=>playTone(500+i*100,0.12,'sine',0.25),t));}
+
 function startMusic(){
     if(musicActive)return;
     musicActive=true;
@@ -405,7 +431,7 @@ function startMusic(){
 }
 function stopMusic(){musicActive=false;if(musicInterval){clearInterval(musicInterval);musicInterval=null;}}
 
-// JÁTÉK
+// Játék logika
 function initBoard(){board=Array.from({length:8},()=>Array(8).fill(null));}
 function spawnPieces(){
     pieces=[];
@@ -450,6 +476,7 @@ function clearLines(){
     }
     return cleared;
 }
+
 function tryPlace(pieceIdx,row,col){
     if(!gameActive)return false;
     const p=pieces[pieceIdx];
@@ -483,6 +510,7 @@ function tryPlace(pieceIdx,row,col){
     if(gameMode==='story'&&storyLevel!==null&&score>=targetScore){completeStoryLevel();}
     return true;
 }
+
 function gameOver(won){
     if(!gameActive)return;
     gameActive=false;
@@ -492,6 +520,7 @@ function gameOver(won){
     document.getElementById('ol-reward').textContent=won?'':'Próbáld újra!';
     document.getElementById('overlay').classList.add('show');
 }
+
 function completeStoryLevel(){
     if(!gameActive)return;
     gameActive=false;
@@ -504,10 +533,12 @@ function completeStoryLevel(){
     document.getElementById('overlay').classList.add('show');
 }
 
-// MEGJELENÍTÉS
+// Felület kirajzolása
 function renderBoard(){
     const container=document.getElementById('board');
     container.innerHTML='';
+    const activeI=ICONS.find(x=>x.id===activeIcon);
+    const emo=activeI?activeI.emoji:'';
     for(let r=0;r<8;r++){
         for(let c=0;c<8;c++){
             const cell=document.createElement('div');
@@ -515,325 +546,169 @@ function renderBoard(){
             cell.dataset.r=r;cell.dataset.c=c;
             if(board[r][c]){
                 cell.classList.add('filled');
-                cell.style.background=board[r][c];
-                const icon=ICONS.find(x=>x.id===activeIcon);
-                if(icon&&icon.emoji){
-                    const ic=document.createElement('span');
-                    ic.className='cell-icon';
-                    ic.textContent=icon.emoji;
-                    cell.appendChild(ic);
-                }
+                cell.style.background=`radial-gradient(circle at 30% 30%, ${board[r][c]}, #050510)`;
+                if(emo){const ispan=document.createElement('span');ispan.className='cell-icon';ispan.textContent=emo;cell.appendChild(ispan);}
             }
-            cell.addEventListener('dragover',(e)=>{
-                e.preventDefault();
-                if(draggedPieceIndex!==null&&!pieces[draggedPieceIndex]?.used){
-                    const p=pieces[draggedPieceIndex];
-                    updatePreview(p.shape,r,c,canPlace(p.shape,r,c));
-                }
-            });
-            cell.addEventListener('dragleave',()=>clearPreview());
-            cell.addEventListener('drop',(e)=>{
-                e.preventDefault();
-                clearPreview();
-                if(draggedPieceIndex!==null){
-                    tryPlace(draggedPieceIndex,r,c);
-                    draggedPieceIndex=null;
-                }
-            });
-            cell.addEventListener('click',()=>{if(selectedPiece!==null)tryPlace(selectedPiece,r,c);});
-            cell.addEventListener('touchstart',()=>{if(selectedPiece!==null)tryPlace(selectedPiece,r,c);});
             container.appendChild(cell);
         }
     }
 }
+
 function renderPieces(){
-    const area=document.getElementById('pieces-area');
-    area.innerHTML='';
+    const container=document.getElementById('pieces-area');
+    container.innerHTML='';
     pieces.forEach((p,idx)=>{
-        if(p.used)return;
         const slot=document.createElement('div');
-        slot.className='piece-slot'+(selectedPiece===idx?' selected':'');
-        slot.draggable=true;
+        slot.className='piece-slot';
+        if(p.used)slot.classList.add('used');
+        if(selectedPiece===idx)slot.classList.add('selected');
         slot.dataset.idx=idx;
-        slot.addEventListener('dragstart',(e)=>{
-            if(p.used||!gameActive){e.preventDefault();return;}
-            draggedPieceIndex=idx;
-            const empty=document.createElement('div');
-            empty.style.width='1px';empty.style.height='1px';empty.style.background='transparent';
-            document.body.appendChild(empty);
-            e.dataTransfer.setDragImage(empty,0,0);
-            setTimeout(()=>empty.remove(),100);
-        });
-        slot.addEventListener('dragend',()=>{draggedPieceIndex=null;clearPreview();});
-        slot.addEventListener('click',()=>{
-            if(p.used||!gameActive)return;
-            playClick();
-            selectedPiece=(selectedPiece===idx)?null:idx;
-            renderPieces();
-        });
-        slot.addEventListener('touchstart',(e)=>{
-            if(p.used||!gameActive)return;
-            selectedPiece=(selectedPiece===idx)?null:idx;
-            renderPieces();
-            e.preventDefault();
-        });
+        
         const grid=document.createElement('div');
         grid.className='piece-grid';
-        grid.style.gridTemplateColumns=`repeat(${p.shape[0].length},1fr)`;
+        grid.style.gridTemplateRows=`repeat(${p.shape.length}, 1fr)`;
+        grid.style.gridTemplateColumns=`repeat(${p.shape[0].length}, 1fr)`;
+        
         p.shape.forEach(row=>row.forEach(v=>{
-            const d=document.createElement('div');
-            d.className='piece-cell'+(v?' filled':'');
-            if(v)d.style.background=p.color;
-            grid.appendChild(d);
+            const pcell=document.createElement('div');
+            pcell.className='piece-cell';
+            if(v){pcell.classList.add('filled');pcell.style.background=p.color;}
+            grid.appendChild(pcell);
         }));
         slot.appendChild(grid);
-        area.appendChild(slot);
+        container.appendChild(slot);
     });
 }
-function updatePreview(shape,row,col,valid){
-    clearPreview();
-    if(!shape)return;
-    for(let dr=0;dr<shape.length;dr++){
-        for(let dc=0;dc<shape[0].length;dc++){
-            if(shape[dr][dc]){
-                const nr=row+dr,nc=col+dc;
-                if(nr>=0&&nr<8&&nc>=0&&nc<8){
-                    const cell=document.querySelector(`#board .cell[data-r="${nr}"][data-c="${nc}"]`);
-                    if(cell){
-                        cell.classList.add(valid?'preview-active':'preview-invalid');
-                        previewCells.add(`${nr},${nc}`);
-                    }
-                }
-            }
-        }
-    }
-}
-function clearPreview(){
-    previewCells.forEach(key=>{
-        const [r,c]=key.split(',').map(Number);
-        const cell=document.querySelector(`#board .cell[data-r="${r}"][data-c="${c}"]`);
-        if(cell)cell.classList.remove('preview-active','preview-invalid');
-    });
-    previewCells.clear();
-}
+
 function updateScore(){
-    document.getElementById('score-val').textContent=score.toLocaleString();
-    document.getElementById('target-display').textContent=gameMode==='story'?
-        `🎯 ${score.toLocaleString()} / ${targetScore.toLocaleString()}`:
-        `🎯 Cél: ${targetScore.toLocaleString()}`;
+    document.getElementById('score-val').textContent=score;
     document.getElementById('combo-display').textContent=`⚡ x${combo}`;
 }
 
-// JÁTÉK INDÍTÁS
-function startGame(mode,level=null){
-    gameMode=mode;storyLevel=level;
-    score=0;combo=1;selectedPiece=null;draggedPieceIndex=null;gameActive=true;
-    targetScore=mode==='story'?getTargetScore(level):120;
-    initBoard();spawnPieces();renderBoard();renderPieces();updateScore();clearPreview();
-    showScreen('game-screen');
-    if(mode==='story')toast(`🎯 ${level+1}. szint: ${targetScore.toLocaleString()} pont`);
-    if(mode==='classic')toast('🎮 Klasszikus mód - érj el 120 pontot!');
-    startMusic();
-}
-
-// KÉPERNYŐ
-function showScreen(id){
+// Navigáció és menük kezelése
+function switchScreen(id){
     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-    const target=document.getElementById(id);
-    if(target)target.classList.add('active');
-    if(id==='shop-screen')renderShop();
-    if(id==='story-screen')renderStory();
-    if(id==='menu-screen'){startMusic();updateUserDisplay();}
-    if(id==='game-screen')startMusic();
+    document.getElementById(id).classList.add('active');
 }
-function goToMenu(){document.getElementById('overlay').classList.remove('show');showScreen('menu-screen');}
-
-// BEJELENTKEZÉS
-function showLogin(){showScreen('login-screen');stopMusic();}
-function closeLogin(){showScreen('menu-screen');startMusic();}
-function updateUserDisplay(){
-    if(userData){
-        document.getElementById('userName').textContent=userData.name;
-        document.getElementById('userAvatar').textContent=userData.avatar||'😎';
-        document.getElementById('profileBtn').textContent=userData.avatar||'👤';
+function goToMenu(){playClick();switchScreen('menu-screen');}
+function startGame(mode,level=null){
+    playClick();initAudio();startMusic();
+    gameMode=mode;storyLevel=level;score=0;combo=1;gameActive=true;
+    initBoard();spawnPieces();renderBoard();renderPieces();updateScore();
+    if(mode==='story'){
+        targetScore=getTargetScore(level);
+        document.getElementById('target-display').textContent=`🎯 Cél: ${targetScore.toLocaleString()}`;
+        document.getElementById('ol-continue').onclick=()=>startGame('story',level+1);
     }else{
-        document.getElementById('userName').textContent='Vendég';
-        document.getElementById('userAvatar').textContent='👤';
-        document.getElementById('profileBtn').textContent='👤';
+        document.getElementById('target-display').textContent='♾️ Végtelen';
+        document.getElementById('ol-continue').onclick=()=>startGame('classic');
     }
-}
-function handleLogin(){
-    const name=document.getElementById('loginName').value.trim();
-    if(!name){toast('❌ Kérlek adj meg egy felhasználónevet!');return;}
-    userData={name:name,avatar:selectedAvatar,joined:Date.now()};
-    localStorage.setItem('sztoja_user',JSON.stringify(userData));
-    updateUserDisplay();
-    toast(`✅ Üdvözöljük, ${name}! 🎉`);
-    closeLogin();
+    document.getElementById('overlay').classList.remove('show');
+    switchScreen('game-screen');
 }
 
-// BOLT
-function openShop(){renderShop();showScreen('shop-screen');}
+function openShop(){playClick();renderShop();switchScreen('shop-screen');}
 function renderShop(){
     updateGems();
-    const bgContainer=document.getElementById('bg-shop');
-    bgContainer.innerHTML='';
-    BACKGROUNDS.forEach(bg=>{
-        const ownedFlag=owned.includes(bg.id);
-        const active=activeBg===bg.id;
-        const div=document.createElement('div');
-        div.className='shop-item'+(ownedFlag?' owned':'')+(active?' active-item':'');
-        div.innerHTML=`<div class="preview">${bg.emoji}</div><div class="name">${bg.name}</div><div class="price">${bg.price===0?'🎁 Ingyen':'💎 '+bg.price}</div>`;
-        div.onclick=()=>{
-            playClick();
-            if(!ownedFlag&&gems>=bg.price){gems-=bg.price;owned.push(bg.id);saveState();toast(`✅ ${bg.name} megvéve!`);}
-            if(ownedFlag){activeBg=bg.id;saveState();}
-            renderShop();
-        };
-        bgContainer.appendChild(div);
-    });
-    const styleContainer=document.getElementById('style-shop');
-    styleContainer.innerHTML='';
-    STYLES.forEach(s=>{
-        const ownedFlag=owned.includes(s.id);
-        const active=activeStyle===s.id;
-        const div=document.createElement('div');
-        div.className='shop-item'+(ownedFlag?' owned':'')+(active?' active-item':'');
-        const colors=s.colors.slice(0,4).map(c=>`<span style="display:inline-block;width:14px;height:14px;border-radius:4px;background:${c};"></span>`).join('');
-        div.innerHTML=`<div style="font-size:0.7rem;margin-bottom:2px;">${colors}</div><div class="name">${s.name}</div><div class="price">${s.price===0?'🎁 Ingyen':'💎 '+s.price}</div>`;
-        div.onclick=()=>{
-            playClick();
-            if(!ownedFlag&&gems>=s.price){gems-=s.price;owned.push(s.id);saveState();toast(`🎨 ${s.name} stílus!`);}
-            if(ownedFlag){activeStyle=s.id;saveState();}
-            renderShop();
-        };
-        styleContainer.appendChild(div);
-    });
-    const iconContainer=document.getElementById('icon-shop');
-    iconContainer.innerHTML='';
-    ICONS.forEach(ic=>{
-        const ownedFlag=owned.includes(ic.id);
-        const active=activeIcon===ic.id;
-        const div=document.createElement('div');
-        div.className='shop-item'+(ownedFlag?' owned':'')+(active?' active-item':'');
-        div.innerHTML=`<div class="preview">${ic.emoji||'🚫'}</div><div class="name">${ic.name}</div><div class="price">${ic.price===0?'🎁 Ingyen':'💎 '+ic.price}</div>`;
-        div.onclick=()=>{
-            playClick();
-            if(!ownedFlag&&gems>=ic.price){gems-=ic.price;owned.push(ic.id);saveState();toast(`✨ ${ic.name} ikon!`);}
-            if(ownedFlag){activeIcon=ic.id;saveState();}
-            renderShop();
-        };
-        iconContainer.appendChild(div);
-    });
-    const powerContainer=document.getElementById('powerup-shop');
-    powerContainer.innerHTML='';
-    POWERUPS.forEach(p=>{
-        const active=hasPowerup(p.id);
-        const div=document.createElement('div');
-        div.className='shop-item'+(active?' owned':'');
-        div.innerHTML=`<div class="preview">${p.emoji}</div><div class="name">${p.name}</div><div class="price">${active?'✅ Aktív':'💎 '+p.price}</div>`;
-        div.onclick=()=>{
-            playClick();
-            if(active){toast('⚠️ Már aktív!');return;}
-            if(gems>=p.price){gems-=p.price;powerups[p.id]=true;saveState();toast(`✅ ${p.name} aktiválva!`);renderShop();}
-            else{toast('❌ Nincs elég gyémánt!');}
-        };
-        powerContainer.appendChild(div);
-    });
+    document.getElementById('bg-shop').innerHTML=BACKGROUNDS.map(x=>`<div class="shop-item ${owned.includes(x.id)?'owned':''} ${activeBg===x.id?'active-item':''}" onclick="buyItem('bg','${x.id}',${x.price})"><div class="preview">${x.emoji}</div><div class="name">${x.name}</div><div class="price">${owned.includes(x.id)?'Kész':`💎 ${x.price}`}</div></div>`).join('');
+    document.getElementById('style-shop').innerHTML=STYLES.map(x=>`<div class="shop-item ${owned.includes(x.id)?'owned':''} ${activeStyle===x.id?'active-item':''}" onclick="buyItem('style','${x.id}',${x.price})"><div class="preview" style="display:inline-block;width:20px;height:20px;background:${x.colors[0]};border-radius:4px;"></div><div class="name">${x.name}</div><div class="price">${owned.includes(x.id)?'Kész':`💎 ${x.price}`}</div></div>`).join('');
+    document.getElementById('icon-shop').innerHTML=ICONS.map(x=>`<div class="shop-item ${owned.includes(x.id)?'owned':''} ${activeIcon===x.id?'active-item':''}" onclick="buyItem('icon','${x.id}',${x.price})"><div class="preview">${x.emoji||'❌'}</div><div class="name">${x.name}</div><div class="price">${owned.includes(x.id)?'Kész':`💎 ${x.price}`}</div></div>`).join('');
+    document.getElementById('powerup-shop').innerHTML=POWERUPS.map(x=>`<div class="shop-item ${hasPowerup(x.id)?'owned active-item':''}" onclick="buyPowerup('${x.id}',${x.price})"><div class="preview">${x.emoji}</div><div class="name">${x.name}</div><div class="price">${hasPowerup(x.id)?'Aktív':`💎 ${x.price}`}</div></div>`).join('');
 }
 
-// TÖRTÉNET
-function openStory(){renderStory();showScreen('story-screen');}
+function buyItem(type,id,price){
+    playClick();
+    if(owned.includes(id)){
+        if(type==='bg'){activeBg=id;applyBg();}
+        if(type==='style')activeStyle=id;
+        if(type==='icon')activeIcon=id;
+        saveState();renderShop();toast('🎨 Stílus felszerelve!');return;
+    }
+    if(gems>=price){gems-=price;owned.push(id);if(type==='bg'){activeBg=id;applyBg();}if(type==='style')activeStyle=id;if(type==='icon')activeIcon=id;saveState();renderShop();toast('🛍️ Sikeres vásárlás!');}
+    else{toast('❌ Nincs elég gyémántod!');}
+}
+function buyPowerup(id,price){
+    playClick();if(hasPowerup(id)){toast('⚡ Ez a power-up már aktív!');return;}
+    if(gems>=price){gems-=price;powerups[id]=true;saveState();renderShop();toast('⚡ Power-up aktiválva!');}
+    else{toast('❌ Nincs elég gyémántod!');}
+}
+function applyBg(){
+    const bg=BACKGROUNDS.find(x=>x.id===activeBg)||BACKGROUNDS[0];
+    document.getElementById('app').style.background=`linear-gradient(135deg, ${bg.colors[0]}, ${bg.colors[1]})`;
+}
+
+function openStory(){playClick();renderStory();switchScreen('story-screen');}
 function renderStory(){
     const tabs=document.getElementById('world-tabs');
-    tabs.innerHTML='';
-    WORLDS.forEach((w,idx)=>{
-        const unlocked=completedLevels.length>=w.minLevel||idx===0;
-        const tab=document.createElement('button');
-        tab.className='world-tab'+(unlocked?'':' locked')+(currentWorld===idx?' active':'');
-        tab.textContent=w.name;
-        tab.onclick=()=>{if(unlocked){currentWorld=idx;renderLevels(idx);renderStory();}};
-        tabs.appendChild(tab);
-    });
-    renderLevels(currentWorld);
-}
-function renderLevels(worldIdx){
-    const grid=document.getElementById('level-grid');
-    grid.innerHTML='';
-    const w=WORLDS[worldIdx];
-    if(!w)return;
-    const startLevel=worldIdx*10;
-    const unlocked=completedLevels.length>=w.minLevel||worldIdx===0;
-    if(!unlocked){
-        grid.innerHTML='<div style="grid-column:1/-1;text-align:center;color:#8888BB;padding:30px 0;">🔒 Teljesítsd az előző világot!</div>';
-        return;
-    }
-    for(let i=0;i<10;i++){
-        const level=startLevel+i;
-        const completed=completedLevels.includes(level);
-        const prevDone=i===0||completedLevels.includes(level-1);
-        const target=getTargetScore(level);
-        const btn=document.createElement('button');
-        btn.className='level-btn'+(completed?' completed':'')+(prevDone?'':' locked');
-        btn.innerHTML=`<div class="lvl-num">${i+1}</div><div class="lvl-target">${target>=1000000?(target/1000000).toFixed(1)+'M':target.toLocaleString()}</div>${completed?'<div class="star">⭐</div>':''}`;
-        if(prevDone){btn.onclick=()=>{playClick();startGame('story',level);};}
+    tabs.innerHTML=WORLDS.map((w,i)=>`<div class="world-tab ${currentWorld===i?'active':''} ${completedLevels.length<w.minLevel?'locked':''}" onclick="setWorld(${i})">${w.name}</div>`).join('');
+    const grid=document.getElementById('level-grid');grid.innerHTML='';
+    const w=WORLDS[currentWorld];
+    for(let i=w.minLevel;i<w.minLevel+5;i++){
+        const btn=document.createElement('div');
+        const isLocked=i>0&&!completedLevels.includes(i-1);
+        const isDone=completedLevels.includes(i);
+        btn.className=`level-btn ${isLocked?'locked':''} ${isDone?'completed':''}`;
+        btn.innerHTML=`<div class="lvl-num">${i+1}</div><div class="lvl-target">🎯 ${getTargetScore(i).toLocaleString()}</div>${isDone?'<div class="star">⭐</div>':''}`;
+        if(!isLocked)btn.onclick=()=>startGame('story',i);
         grid.appendChild(btn);
     }
 }
+function setWorld(i){playClick();currentWorld=i;renderStory();}
 
-// ADMOB
-async function initAdMob(){
-    try{
-        if(typeof Capacitor!=='undefined'&&Capacitor.isNative){
-            const {AdMob}=await import('@capacitor-community/admob');
-            await AdMob.initialize({requestTrackingAuthorization:true});
-            await AdMob.showBanner({
-                adId:'ca-app-pub-8597122869755427/6254335584',
-                adSize:'BANNER',
-                position:'BOTTOM_CENTER',
-                margin:0
-            });
-            console.log('✅ AdMob banner megjelenítve');
-        }
-    }catch(e){console.log('ℹ️ AdMob nem elérhető');}
+// Profil és Belépés
+function checkUser(){
+    if(!userData){switchScreen('login-screen');}
+    else{document.getElementById('userName').textContent=userData.name;document.getElementById('userAvatar').textContent=userData.avatar;}
+}
+function handleLogin(){
+    const name=document.getElementById('loginName').value.trim()||'Játékos';
+    userData={name:name,avatar:selectedAvatar};
+    localStorage.setItem('sztoja_user',JSON.stringify(userData));
+    checkUser();goToMenu();
+}
+function closeLogin(){userData={name:'Vendég',avatar:'😎'};checkUser();goToMenu();}
+
+// ESSEMÉNYKEZELŐK (Egér és Érintés)
+function initControls(){
+    const area=document.getElementById('pieces-area');
+    
+    // Érintőképernyős (Mobil) vezérlés
+    area.addEventListener('touchstart',e=>{
+        const slot=e.target.closest('.piece-slot');
+        if(!slot||slot.classList.contains('used'))return;
+        draggedPieceIndex=parseInt(slot.dataset.idx);
+        document.querySelectorAll('.piece-slot').forEach(s=>s.classList.remove('selected'));
+        slot.classList.add('selected');
+        selectedPiece=draggedPieceIndex;
+    },{passive:true});
+
+    document.getElementById('board').addEventListener('click',e=>{
+        const cell=e.target.closest('.cell');
+        if(!cell||selectedPiece===null)return;
+        const r=parseInt(cell.dataset.r), c=parseInt(cell.dataset.c);
+        tryPlace(selectedPiece,r,c);
+    });
+
+    // Profilkép választás
+    document.getElementById('avatarSelect').addEventListener('click',e=>{
+        const av=e.target.closest('.av');if(!av)return;
+        document.querySelectorAll('.avatar-select .av').forEach(x=>x.classList.remove('selected'));
+        av.classList.add('selected');selectedAvatar=av.dataset.avatar;playClick();
+    });
+    document.getElementById('profileBtn').addEventListener('click',()=>switchScreen('login-screen'));
+    
+    // Hangerő csúszka
+    document.getElementById('volumeSlider').addEventListener('input',e=>{
+        volume=parseInt(e.target.value)/100;
+    });
 }
 
-// ESEMÉNYEK
-document.getElementById('ol-continue').onclick=()=>{
-    document.getElementById('overlay').classList.remove('show');
-    if(gameMode==='story'&&storyLevel!==null){startGame('story',storyLevel+1);}
-    else{startGame('classic');}
-};
-document.getElementById('volumeSlider').addEventListener('input',(e)=>{volume=parseFloat(e.target.value)/100;});
-document.getElementById('profileBtn').onclick=showLogin;
-
-document.addEventListener('DOMContentLoaded',()=>{
-    document.querySelectorAll('#avatarSelect .av').forEach(el=>{
-        el.addEventListener('click',()=>{
-            document.querySelectorAll('#avatarSelect .av').forEach(a=>a.classList.remove('selected'));
-            el.classList.add('selected');
-            selectedAvatar=el.dataset.avatar;
-        });
-    });
-    document.querySelector('#avatarSelect .av')?.classList.add('selected');
-    if(userData){
-        document.getElementById('loginName').value=userData.name||'';
-        selectedAvatar=userData.avatar||'😎';
-        document.querySelectorAll('#avatarSelect .av').forEach(el=>{
-            el.classList.toggle('selected',el.dataset.avatar===selectedAvatar);
-        });
-    }
-    updateUserDisplay();
-});
-
 // INDÍTÁS
-updateGems();
-updateUserDisplay();
-showScreen('menu-screen');
-startMusic();
-toast('🎮 100 gyémánttal indítasz!',3000);
-initAdMob();
-console.log('🏆 SZTOJA GAME v3.5 - Szép vissza gombok');
+window.addEventListener('DOMContentLoaded',()=>{
+    initControls();applyBg();checkUser();updateGems();
+    // Betöltjük a Google AdMobot, amikor elindul az app
+    initAdMob();
+});
 </script>
 </body>
 </html>
